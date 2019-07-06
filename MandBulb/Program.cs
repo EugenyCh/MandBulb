@@ -26,12 +26,15 @@ namespace MandBulb
                     var mandelbulb = new Mandelbulb((uint)n, (uint)side);
                     if (args.Count() == 6)
                     {
-                        mandelbulb.AngleXY = double.Parse(args[3]);
-                        mandelbulb.AngleXZ = double.Parse(args[4]);
-                        mandelbulb.AngleYZ = double.Parse(args[5]);
+                        mandelbulb.AngleXY = double.Parse(args[3]) * Math.PI / 180;
+                        mandelbulb.AngleXZ = double.Parse(args[4]) * Math.PI / 180;
+                        mandelbulb.AngleYZ = double.Parse(args[5]) * Math.PI / 180;
                     }
                     mandelbulb.Render(iter, 10);
-                    mandelbulb.SaveTo($"mandelbulb-n{n}-{side}x{side}-i{iter}.png");
+                    mandelbulb.SaveTo($"mandelbulb-n{n}-s{side}-i{iter}" +
+                        $"-xy{(int)(mandelbulb.AngleXY * 180 / Math.PI)}" +
+                        $"-xz{(int)(mandelbulb.AngleXZ * 180 / Math.PI)}" +
+                        $"-yz{(int)(mandelbulb.AngleYZ * 180 / Math.PI)}.png");
                 }
                 catch (Exception ex)
                 {

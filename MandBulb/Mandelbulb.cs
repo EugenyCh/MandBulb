@@ -102,7 +102,7 @@ namespace MandBulb
                         double sqr = vec.Square();
                         if (sqr <= bailout2)
                         {
-                            sqrVec = sqr;
+                            sqrVec = cVec.Square();
                             break;
                         }
                     }
@@ -112,8 +112,8 @@ namespace MandBulb
                         lock (locker)
                             Pixels[y, x] = Color.FromArgb(
                                 (int)(k * 127),
-                                (int)(k * 127),
-                                (int)(k * k * 255));
+                                (int)(Math.Pow(k < 0.5 ? (1.0 - k) : k - 0.5, 2.0) * 255),
+                                (int)(k * 255));
                     }
                 }
 
@@ -161,7 +161,7 @@ namespace MandBulb
                     Y1 = y1
                 });
             }
-            Console.WriteLine($"Rendering Mandelbulb - N = {power}, Side = {side}...");
+            Console.WriteLine($"Rendering Mandelbulb | N = {power} | Side = {side} | Iterations = {maxIter} ...");
             bool go = true;
             var time_before = DateTime.Now;
             while (go)
@@ -175,10 +175,13 @@ namespace MandBulb
                 {
                     bar = ">".PadLeft(ti, '=');
                     bar = bar.PadRight(barw, '.');
+                    Console.Write($"\r[{bar}] {(int)(t * 100)}.{(int)(t * 1000) % 10}% ...  ");
                 }
                 else
+                {
                     bar = "".PadLeft(barw, '=');
-                Console.Write($"\r[{bar}] {(int)(t * 100)}.{(int)(t * 1000) % 10}%   ");
+                    Console.Write($"\r[{bar}] {(int)(t * 100)}.{(int)(t * 1000) % 10}%   ");
+                }
                 Thread.Sleep(100);
             }
             var time_after = DateTime.Now;
