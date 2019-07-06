@@ -112,8 +112,8 @@ namespace MandBulb
                         lock (locker)
                             Pixels[y, x] = Color.FromArgb(
                                 (int)(k * 127),
-                                (int)(Math.Pow(k < 0.5 ? (1.0 - k) : k - 0.5, 2.0) * 255),
-                                (int)(k * 255));
+                                (int)(k * 127),
+                                (int)((1.0 - (1.0 - k) * (1.0 - k)) * 255));
                     }
                 }
 
