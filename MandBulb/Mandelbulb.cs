@@ -111,9 +111,9 @@ namespace MandBulb
                         double k = sqrVec.Value / bailout2;
                         lock (locker)
                             Pixels[y, x] = Color.FromArgb(
-                                (int)(k * 255),  // red
-                                (int)(k * 255),  // green
-                                (int)(k * 255)); // blue
+                                (int)(k * 127),
+                                (int)(k * 127),
+                                (int)(k * k * 255));
                     }
                 }
 
@@ -146,7 +146,7 @@ namespace MandBulb
             double power = Power.Value;
             Pixels = new Color[side, side];
             int barw = 20;
-            int rowHeight = side / threadsCount;
+            int rowHeight = side / threadsCount + 1;
             var threads = new Thread[threadsCount];
             maxIter = maxiter;
             lines = 0;
