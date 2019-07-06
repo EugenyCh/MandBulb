@@ -7,6 +7,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Threading;
 
 namespace MandBulb
 {
@@ -24,6 +25,12 @@ namespace MandBulb
         };
 
         public double Square() => X * X + Y * Y + Z * Z;
+    }
+
+    class RowSetting
+    {
+        public int Y0;
+        public int Y1;
     }
 
     class PolarVector : ICloneable
@@ -56,6 +63,11 @@ namespace MandBulb
         public double AngleYZ { set; get; } = 0.0;
         public double Bailout => Math.Pow(2.0, 1.0 / (Power.Value - 1.0));
 
+        private object locker = new object();
+        private int maxIter;
+        private int lines;
+
+
         public void SaveTo(string filename)
         {
             int side = (int)Side.Value;
@@ -68,7 +80,49 @@ namespace MandBulb
             }
         }
 
-        public void Render(int maxiter)
+        private void RenderRow(object s)
+        {
+            var setting = (RowSetting)s;
+            int y0 = setting.Y0;
+            int y1 = setting.Y1;
+            int side = (int)Side.Value;
+            int halfside = side >> 1;
+            double bailout2 = Math.Pow(Bailout, 2.0);
+            for (int y = y0; y < y1; ++y)
+            {
+                for (int x = 0; x < side; ++x)
+                {
+                    double? sqrVec = null;
+                    for (int z = side - 1; z >= halfside - 1; --z)
+                    {
+                        var vec = PointToEuclidVector(x, y, z);
+                        var cVec = (EuclidVector)vec.Clone();
+                        for (int i = 0; i < maxIter; ++i)
+                            IterateVector(ref vec, cVec);
+                        double sqr = vec.Square();
+                        if (sqr <= bailout2)
+                        {
+                            sqrVec = sqr;
+                            break;
+                        }
+                    }
+                    if (sqrVec.HasValue)
+                    {
+                        double k = sqrVec.Value / bailout2;
+                        lock (locker)
+                            Pixels[y, x] = Color.FromArgb(
+                                (int)(k * 255),  // red
+                                (int)(k * 255),  // green
+                                (int)(k * 255)); // blue
+                    }
+                }
+
+                lock (locker)
+                    ++lines;
+            }
+        }
+
+        public void Render(int maxiter, int threadsCount = 1)
         {
             bool ready = true;
             if (Power == null)
@@ -81,56 +135,58 @@ namespace MandBulb
                 Console.WriteLine("Set the value of side in pixels");
                 ready = false;
             }
+            if (threadsCount < 1)
+            {
+                Console.WriteLine("Threads must be one at least");
+                ready = false;
+            }
             if (!ready)
                 return;
             int side = (int)Side.Value;
             double power = Power.Value;
             Pixels = new Color[side, side];
-            double bailout = Bailout;
-            double bailout2 = Math.Pow(Bailout, 2.0);
-            int halfside = side >> 1;
-            Console.WriteLine($"Rendering Mandelbulb - N = {power}, Side = {side}...");
             int barw = 20;
-            var time_before = DateTime.Now;
-            for (int y = 0; y < side; ++y)
+            int rowHeight = side / threadsCount;
+            var threads = new Thread[threadsCount];
+            maxIter = maxiter;
+            lines = 0;
+            for (int i = 0; i < threadsCount; ++i)
             {
-                for (int x = 0; x < side; ++x)
+                int y0 = rowHeight * i;
+                int y1 = Math.Min(y0 + rowHeight, side);
+                threads[i] = new Thread(RenderRow);
+                threads[i].Start(new RowSetting
                 {
-                    double? sqrVec = null;
-                    for (int z = side - 1; z >= halfside - 1; --z)
-                    {
-                        var vec = PointToEuclidVector(x, y, z);
-                        var cVec = (EuclidVector)vec.Clone();
-                        for (int i = 0; i < maxiter; ++i)
-                            IterateVector(ref vec, cVec);
-                        double sqr = vec.Square();
-                        if (sqr <= bailout2)
-                        {
-                            sqrVec = sqr;
-                            break;
-                        }
-                    }
-                    if (sqrVec.HasValue)
-                    {
-                        double k = 1.0 - sqrVec.Value / bailout2;
-                        Pixels[y, x] = Color.FromArgb(
-                            (int)(k * 255),  // red
-                            (int)(k * 255),  // green
-                            (int)(k * 255)); // blue
-                    }
-                }
-                double t = (y + 1.0) / side;
+                    Y0 = y0,
+                    Y1 = y1
+                });
+            }
+            Console.WriteLine($"Rendering Mandelbulb - N = {power}, Side = {side}...");
+            bool go = true;
+            var time_before = DateTime.Now;
+            while (go)
+            {
+                if (lines == side)
+                    go = false;
+                double t = (double)lines / side;
                 int ti = (int)(barw * t);
-                string bar = "".PadLeft(ti, '=');
-                bar = bar.PadRight(barw, '.');
-                Console.Write($"\r[{bar}] {(int)(t * 100)}%  ");
+                string bar;
+                if (t < 1.0)
+                {
+                    bar = ">".PadLeft(ti, '=');
+                    bar = bar.PadRight(barw, '.');
+                }
+                else
+                    bar = "".PadLeft(barw, '=');
+                Console.Write($"\r[{bar}] {(int)(t * 100)}.{(int)(t * 1000) % 10}%   ");
+                Thread.Sleep(100);
             }
             var time_after = DateTime.Now;
             var delta_ms = (int)(time_after - time_before).TotalMilliseconds;
             var delta_s = (delta_ms / 1000) % 60;
             var delta_m = delta_ms / 60000;
             delta_ms %= 1000;
-            Console.WriteLine($"\nIt tooks {delta_m} m {delta_s.ToString().PadLeft(2, '0')}" +
+            Console.WriteLine($"\nIt tooks {delta_m} m {delta_s}" +
                 $".{delta_ms.ToString().PadLeft(3, '0')} s");
         }
 

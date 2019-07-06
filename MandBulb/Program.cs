@@ -10,8 +10,8 @@ namespace MandBulb
     {
         static void Main(string[] args)
         {
-            var mandelbulb = new Mandelbulb(8, 240);
-            mandelbulb.Render(3);
+            var mandelbulb = new Mandelbulb(8, 320);
+            mandelbulb.Render(5, 10);
             mandelbulb.SaveTo("output.png");
         }
     }
